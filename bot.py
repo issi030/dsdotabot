@@ -11,6 +11,9 @@ from playwright.async_api import (
     TimeoutError as PlaywrightTimeoutError,
 )
 
+import tempfile
+from pathlib import Path
+
 SITE = "https://china8sd.github.io/who-ruined/"
 MAX_CONCURRENT_ANALYSES = 1
 
@@ -90,6 +93,7 @@ async def analyze_match(match_id: str):
                     "_Оценка модели, а не доказательство единоличной вины игрока._"
                 )
 
+                
                 # Скачиваем оригинальную карточку сайта.
                 image_bytes = None
 
@@ -100,15 +104,15 @@ async def analyze_match(match_id: str):
                         await page.locator("#shareCard").click()
 
                     download = await download_event.value
-                    stream = await download.create_read_stream()
 
-                    if stream:
-                        image_bytes = await stream.read()
+                    with tempfile.TemporaryDirectory() as tmp:
+                        image_path = Path(tmp) / "report.png"
+                        await download.save_as(str(image_path))
+                        image_bytes = image_path.read_bytes()
 
                 except PlaywrightTimeoutError:
-                    # Резервный вариант: снимок карточки результата.
                     image_bytes = await page.locator(
-                        ".verdict"
+                        "#result"
                     ).screenshot(type="png")
 
                 if not image_bytes:
@@ -117,6 +121,7 @@ async def analyze_match(match_id: str):
                     )
 
                 return report, image_bytes
+
 
             finally:
                 await browser.close()
@@ -194,3 +199,4 @@ if __name__ == "__main__":
         )
 
     bot.run(token)
+
